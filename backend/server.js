@@ -164,6 +164,18 @@ app.post('/api/workers/:id/check-out', async (req, res) => {
   }
 });
 
+// 9. Operations: Get Health History
+app.get('/api/scans/:workerId', async (req, res) => {
+  try {
+    const scans = await Scan.find({ workerId: req.params.workerId })
+                           .sort({ timestamp: -1 })
+                           .limit(50);
+    res.json(scans);
+  } catch (err) {
+    res.status(500).json({ error: 'History Retrieval Failure' });
+  }
+});
+
 // Socket Events
 io.on('connection', (socket) => {
   console.log('📡 Dashboard Terminal Connected');

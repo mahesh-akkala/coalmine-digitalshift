@@ -1,118 +1,213 @@
-import React from 'react';
-import { GraphCard, StatCard, TableCard, StatusBadge } from '../components/ui/UIComponents';
-import { analyticsData } from '../data/dummyData';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { StatCard, StatusBadge } from '../components/ui/UIComponents';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const HealthAnalytics = () => {
-  const { sevenDayHistory, safetyScore, abnormalDays, currentStatus } = analyticsData;
+  const [workers, setWorkers] = useState([]);
+  const [selectedWorker, setSelectedWorker] = useState(null);
+  const [scans, setScans] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const renderSimplifiedChart = (data, color, min, max, label) => {
-    const height = 120;
-    const width = 400;
-    const points = data.map((val, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - ((val - min) / (max - min)) * height;
-      return `${x},${y}`;
-    }).join(' ');
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const res = await fetch('http://localhost:5000/api/workers');
+        const data = await res.json();
+        setWorkers(data);
+        if (data.length > 0) setSelectedWorker(data[0]);
+      } catch (err) {
+        console.error('Data Sync Failure:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    init();
+  }, []);
 
-    return (
-      <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>{label}</span>
-          <span style={{ fontSize: '0.8rem', color: color, fontWeight: 'bold' }}>Range: {min}-{max}</span>
-        </div>
-        <div style={{ height: '120px', width: '100%' }}>
-          <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
-            <path d={`M ${points} V ${height} H 0 Z`} fill={color} fillOpacity="0.1" />
-            <polyline fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" points={points} style={{ filter: `drop-shadow(0 0 5px ${color}44)` }} />
-            {data.map((val, i) => (
-              <circle key={i} cx={(i / (data.length - 1)) * width} cy={height - ((val - min) / (max - min)) * height} r="4" fill={color} />
-            ))}
-          </svg>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.75rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-          {sevenDayHistory.map(d => <span key={d.day}>{d.day}</span>)}
-        </div>
-      </div>
-    );
+  useEffect(() => {
+    if (selectedWorker) {
+      fetchHistory(selectedWorker.id);
+    }
+  }, [selectedWorker]);
+
+  const fetchHistory = async (workerId) => {
+    try {
+      const res = await fetch(`http://localhost:5000/api/scans/${workerId}`);
+      const data = await res.json();
+      setScans(data);
+    } catch (err) {
+      console.error('History Retrieval Failure:', err);
+    }
   };
 
-  return (
-    <div>
-      <h1 style={{ fontSize: '1.8rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Worker Health Analytics</h1>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '2.5rem' }}>Simplified 7-day health trends and safety reporting.</p>
+  const calculateAverages = () => {
+    if (scans.length === 0) return { hr: 0, spo2: 0, status: 'N/A' };
+    const sumHr = scans.reduce((acc, s) => acc + s.heartRate, 0);
+    const sumSpo2 = scans.reduce((acc, s) => acc + s.spo2, 0);
+    const avgHr = Math.round(sumHr / scans.length);
+    const avgSpo2 = Math.round(sumSpo2 / scans.length);
+    
+    let status = 'Safe';
+    if (avgHr > 100 || avgSpo2 < 94) status = 'Warning';
+    if (avgHr > 115 || avgSpo2 < 92) status = 'Critical';
+    
+    return { hr: avgHr, spo2: avgSpo2, status };
+  };
 
-      {/* Summary Cards Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
-        <div className="card" style={{ textAlign: 'center', borderTop: `5px solid ${currentStatus === 'Safe' ? 'var(--success)' : 'var(--danger)'}` }}>
-           <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Current Health Status</div>
-           <div style={{ fontSize: '2rem', fontWeight: 'bold', color: currentStatus === 'Safe' ? 'var(--success)' : 'var(--danger)' }}>{currentStatus.toUpperCase()}</div>
-           <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>Vitals are within stable range</div>
+  const averages = calculateAverages();
+
+  const downloadPDF = () => {
+    const doc = new jsPDF();
+    const adminData = localStorage.getItem('coalmine_admin');
+    const admin = adminData ? JSON.parse(adminData) : { firstName: 'System', lastName: 'Admin' };
+
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(245, 179, 1);
+    doc.text('COALSHIFT: HEALTH COMPLIANCE REPORT', 14, 22);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated By: ${admin.firstName} ${admin.lastName}`, 14, 30);
+    doc.text(`Date: ${new Date().toLocaleString()}`, 14, 35);
+    
+    doc.setDrawColor(200);
+    doc.line(14, 40, 196, 40);
+
+    // Worker Details
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text('OPERATIVE PROFILE', 14, 52);
+    doc.setFontSize(11);
+    doc.text(`Name: ${selectedWorker.name}`, 14, 60);
+    doc.text(`ID: ${selectedWorker.id}`, 14, 66);
+    doc.text(`Department: ${selectedWorker.department}`, 14, 72);
+    doc.text(`Biometric Template: Slot #${selectedWorker.fingerprintId}`, 14, 78);
+
+    // Averages Box
+    doc.setFillColor(245, 179, 1, 0.05);
+    doc.rect(14, 85, 182, 35, 'F');
+    doc.setFontSize(14);
+    doc.text('WEEKLY ANALYSIS SUMMARY', 20, 95);
+    doc.setFontSize(12);
+    doc.text(`Average Heart Rate: ${averages.hr} BPM`, 20, 105);
+    doc.text(`Average Blood Oxygen (SpO2): ${averages.spo2}%`, 20, 112);
+    doc.text(`Safety Conclusion: ${averages.status.toUpperCase()}`, 120, 105);
+
+    // Table of Records
+    doc.autoTable({
+      startY: 130,
+      head: [['Timestamp', 'Heart Rate', 'SpO2', 'Status']],
+      body: scans.map(s => [
+        new Date(s.timestamp).toLocaleString(),
+        `${s.heartRate} BPM`,
+        `${s.spo2}%`,
+        s.status.toUpperCase()
+      ]),
+      headStyles: { fillStyle: [245, 179, 1] },
+      alternateRowStyles: { fillColor: [250, 250, 250] }
+    });
+
+    doc.save(`HealthReport_${selectedWorker.id}.pdf`);
+  };
+
+  if (isLoading) return <div style={{ color: 'var(--accent-primary)', padding: '4rem', textAlign: 'center' }}>Synchronizing Health Nodes... 📡</div>;
+
+  return (
+    <div className="animate-fade-in">
+      <div className="page-header" style={{ marginBottom: '3rem' }}>
+        <div>
+          <h1 className="page-title">Health Analytics Hub</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', marginTop: '0.5rem' }}>
+            Weekly averaged biometric telemetry and safety scoring.
+          </p>
         </div>
-        <div className="card" style={{ textAlign: 'center', borderTop: '5px solid var(--accent-primary)' }}>
-           <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Weekly Safety Score</div>
-           <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent-primary)' }}>{safetyScore}%</div>
-           <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>Calculated from HR & SpO2 vitals</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center', borderTop: '5px solid var(--warning)' }}>
-           <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Abnormal Days (7d)</div>
-           <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--warning)' }}>{abnormalDays}</div>
-           <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>Days with health warnings</div>
-        </div>
-        <div className="card" style={{ textAlign: 'center', borderTop: '5px solid var(--info)' }}>
-           <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Last Entry Decision</div>
-           <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--info)' }}>APPROVED</div>
-           <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>Verified 08:00 AM Today</div>
-        </div>
+        <button onClick={downloadPDF} className="btn btn-primary" style={{ height: 'fit-content' }}>
+          📄 EXPORT PDF REPORT
+        </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(300px, 1fr) 2fr', gap: '2rem' }}>
-        {/* Profile Card */}
-        <div className="card" style={{ height: 'fit-content' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-            <div style={{ width: '60px', height: '60px', background: 'var(--bg-tertiary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>👷</div>
-            <div>
-              <h3 style={{ fontWeight: 'bold' }}>John Doe</h3>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Excavation | ID: W101</span>
-            </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '2.5rem' }}>
+        {/* Sidebar Selection */}
+        <div className="card glass" style={{ height: 'fit-content' }}>
+          <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1.5rem', letterSpacing: '0.1em' }}>Select Operative</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {workers.map(w => (
+              <div 
+                key={w._id}
+                onClick={() => setSelectedWorker(w)}
+                style={{ 
+                  padding: '1rem', 
+                  background: selectedWorker?.id === w.id ? 'rgba(245, 179, 1, 0.1)' : 'rgba(255,255,255,0.02)',
+                  border: `1.5px solid ${selectedWorker?.id === w.id ? 'var(--accent-primary)' : 'transparent'}`,
+                  borderRadius: 'var(--radius-md)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{w.name}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {w.id}</div>
+              </div>
+            ))}
           </div>
-          
-          <div style={{ padding: '1.5rem', background: 'rgba(245, 179, 1, 0.05)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-color)', marginBottom: '2rem' }}>
-             <h4 style={{ fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Health Summary</h4>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.85rem' }}>Safe Work Days</span>
-                  <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>6 Days</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.85rem' }}>Warning Incidents</span>
-                  <span style={{ color: 'var(--warning)', fontWeight: 'bold' }}>1 Days</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.85rem' }}>Critical Events</span>
-                  <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>0 Days</span>
-                </div>
-             </div>
-          </div>
-          
-          <button className="btn btn-primary" style={{ width: '100%', padding: '1rem' }}>DOWNLOAD ANALYTICS REPORT</button>
         </div>
 
-        {/* Charts Section */}
-        <div className="card">
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '2rem' }}>Simplified Health Trends (Last 7 Days)</h3>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
-            {renderSimplifiedChart(sevenDayHistory.map(d => d.heartRate), 'var(--accent-primary)', 60, 110, 'Heart Rate (BPM)')}
-            {renderSimplifiedChart(sevenDayHistory.map(d => d.spo2), 'var(--info)', 90, 100, 'Oxygen Level (SpO2 %)')}
-          </div>
+        {/* Analytics Display */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          {selectedWorker ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
+                <div className="card" style={{ textAlign: 'center', borderBottom: '4px solid var(--accent-primary)' }}>
+                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1rem' }}>WEEKLY AVG HEART RATE</div>
+                   <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--accent-primary)' }}>{averages.hr} <span style={{ fontSize: '1rem' }}>BPM</span></div>
+                </div>
+                <div className="card" style={{ textAlign: 'center', borderBottom: '4px solid var(--info)' }}>
+                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1rem' }}>WEEKLY AVG SPO2</div>
+                   <div style={{ fontSize: '2.5rem', fontWeight: '900', color: 'var(--info)' }}>{averages.spo2} <span style={{ fontSize: '1rem' }}>%</span></div>
+                </div>
+                <div className="card" style={{ textAlign: 'center', borderBottom: `4px solid var(--${averages.status.toLowerCase()})` }}>
+                   <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '1rem' }}>SAFETY STATUS</div>
+                   <div style={{ fontSize: '1.8rem', fontWeight: '900', color: `var(--${averages.status.toLowerCase()})` }}>{averages.status.toUpperCase()}</div>
+                </div>
+              </div>
 
-          <div style={{ marginTop: '2.5rem', padding: '1.5rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', borderLeft: '5px solid var(--success)' }}>
-             <h4 style={{ marginBottom: '0.5rem' }}>Overall Condition Result</h4>
-             <p style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '1.2rem' }}>Condition: STABLE & SAFE</p>
-             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-                Based on the last 7 days of shift data, worker exhibits consistent vital signs within the safety regulations. High weekly safety score detected.
-             </p>
-          </div>
+              <div className="card glass">
+                 <h3 style={{ marginBottom: '2rem', fontSize: '1.1rem', fontWeight: '800' }}>Biometric Record History (Last 50 Scans)</h3>
+                 {scans.length > 0 ? (
+                   <table className="data-table">
+                     <thead>
+                       <tr>
+                         <th>Timestamp</th>
+                         <th>Heart Rate</th>
+                         <th>Oxygen Saturation</th>
+                         <th>Health Grade</th>
+                       </tr>
+                     </thead>
+                     <tbody>
+                       {scans.map(s => (
+                         <tr key={s._id}>
+                           <td>{new Date(s.timestamp).toLocaleString()}</td>
+                           <td style={{ fontWeight: 'bold' }}>{s.heartRate} BPM</td>
+                           <td style={{ fontWeight: 'bold' }}>{s.spo2}%</td>
+                           <td><StatusBadge status={s.status} /></td>
+                         </tr>
+                       ))}
+                     </tbody>
+                   </table>
+                 ) : (
+                   <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)', border: '1px dashed var(--border-color)', borderRadius: '12px' }}>
+                     No historical health data found for this operative. 🩺
+                   </div>
+                 )}
+              </div>
+            </>
+          ) : (
+            <div className="card glass" style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+              Select a worker from the sidebar to view detailed health averages.
+            </div>
+          )}
         </div>
       </div>
     </div>

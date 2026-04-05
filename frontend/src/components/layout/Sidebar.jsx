@@ -10,6 +10,7 @@ const Sidebar = () => {
     { title: 'Worker Registration', path: '/worker-registration', icon: '👷' },
     { title: 'Worker Attendance', path: '/worker-attendance', icon: '🆔' },
     { title: 'Registered Workers', path: '/worker-records', icon: '📜' },
+    { title: 'Health Analytics', path: '/health-analytics', icon: '📈' },
     { title: 'Reports', path: '/reports', icon: '📋' },
     { title: 'Settings', path: '/settings', icon: '⚙️' },
   ];
