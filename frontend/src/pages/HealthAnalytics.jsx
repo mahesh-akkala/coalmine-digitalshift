@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { StatCard, StatusBadge } from '../components/ui/UIComponents';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const HealthAnalytics = () => {
   const [workers, setWorkers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedWorker, setSelectedWorker] = useState(null);
   const [scans, setScans] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,6 +59,7 @@ const HealthAnalytics = () => {
   const averages = calculateAverages();
 
   const downloadPDF = () => {
+    if (!selectedWorker) return;
     const doc = new jsPDF();
     const adminData = localStorage.getItem('coalmine_admin');
     const admin = adminData ? JSON.parse(adminData) : { firstName: 'System', lastName: 'Admin' };
@@ -97,7 +98,7 @@ const HealthAnalytics = () => {
     doc.text(`Safety Conclusion: ${averages.status.toUpperCase()}`, 120, 105);
 
     // Table of Records
-    doc.autoTable({
+    autoTable(doc, {
       startY: 130,
       head: [['Timestamp', 'Heart Rate', 'SpO2', 'Status']],
       body: scans.map(s => [
@@ -106,12 +107,17 @@ const HealthAnalytics = () => {
         `${s.spo2}%`,
         s.status.toUpperCase()
       ]),
-      headStyles: { fillStyle: [245, 179, 1] },
+      headStyles: { fillColor: [245, 179, 1] },
       alternateRowStyles: { fillColor: [250, 250, 250] }
     });
 
     doc.save(`HealthReport_${selectedWorker.id}.pdf`);
   };
+
+  const filteredWorkers = workers.filter(w => 
+    w.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    w.id.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (isLoading) return <div style={{ color: 'var(--accent-primary)', padding: '4rem', textAlign: 'center' }}>Synchronizing Health Nodes... 📡</div>;
 
@@ -133,24 +139,55 @@ const HealthAnalytics = () => {
         {/* Sidebar Selection */}
         <div className="card glass" style={{ height: 'fit-content' }}>
           <h3 style={{ fontSize: '0.9rem', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '1.5rem', letterSpacing: '0.1em' }}>Select Operative</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {workers.map(w => (
-              <div 
-                key={w._id}
-                onClick={() => setSelectedWorker(w)}
-                style={{ 
-                  padding: '1rem', 
-                  background: selectedWorker?.id === w.id ? 'rgba(245, 179, 1, 0.1)' : 'rgba(255,255,255,0.02)',
-                  border: `1.5px solid ${selectedWorker?.id === w.id ? 'var(--accent-primary)' : 'transparent'}`,
-                  borderRadius: 'var(--radius-md)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{w.name}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {w.id}</div>
+          
+          {/* Worker Search Bar */}
+          <div style={{ marginBottom: '1.5rem', position: 'relative' }}>
+            <input 
+              type="text" 
+              placeholder="Search by name or ID..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '0.75rem 1rem',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1.5px solid var(--border-color)',
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: '0.85rem',
+                outline: 'none',
+                transition: 'border-color 0.2s ease'
+              }}
+              onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
+              onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+            />
+            <span style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}>🔍</span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '500px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+            {filteredWorkers.length > 0 ? (
+              filteredWorkers.map(w => (
+                <div 
+                  key={w._id}
+                  onClick={() => setSelectedWorker(w)}
+                  style={{ 
+                    padding: '1rem', 
+                    background: selectedWorker?.id === w.id ? 'rgba(245, 179, 1, 0.1)' : 'rgba(255,255,255,0.02)',
+                    border: `1.5px solid ${selectedWorker?.id === w.id ? 'var(--accent-primary)' : 'transparent'}`,
+                    borderRadius: 'var(--radius-md)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  <div style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{w.name}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>ID: {w.id}</div>
+                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.85rem', background: 'rgba(255,255,255,0.01)', borderRadius: '8px', border: '1px dashed var(--border-color)' }}>
+                No operatives found matching "{searchTerm}"
               </div>
-            ))}
+            )}
           </div>
         </div>
 

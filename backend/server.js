@@ -119,14 +119,20 @@ app.post('/api/workers', async (req, res) => {
   }
 });
 
-// 6. Workforce: Deletion
+// 6. Workforce: Deletion (Permanent Scrutiny)
 app.delete('/api/workers/:id', async (req, res) => {
   try {
-    // Delete worker by custom ID or MongoDB ID
-    const worker = await Worker.findOneAndDelete({ id: req.params.id }) || 
-                   await Worker.findByIdAndDelete(req.params.id);
+    // Locate operative for thorough purging
+    const worker = await Worker.findOne({ id: req.params.id }) || await Worker.findById(req.params.id);
     if (!worker) return res.status(404).json({ error: 'Operative Not Found' });
-    res.json({ message: 'Operative Purged From System' });
+
+    // Purge linked biometric telemetry history (Permanently)
+    await Scan.deleteMany({ workerId: worker.id });
+
+    // Remove official registry record
+    await Worker.deleteOne({ _id: worker._id });
+
+    res.json({ message: 'Operative and Biometric History Purged From System' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

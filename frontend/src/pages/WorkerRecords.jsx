@@ -4,6 +4,7 @@ import { TableCard, StatusBadge, StatCard, InfoBanner } from '../components/ui/U
 
 const WorkerRecords = () => {
   const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = useState('');
   const [workers, setWorkers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -23,6 +24,27 @@ const WorkerRecords = () => {
     }
   };
 
+  const handleDelete = async (id) => {
+    if (!window.confirm('🚨 WARNING: Entire operative profile and health history will be permanently purged. Proceed?')) return;
+    try {
+      const res = await fetch(`http://localhost:5000/api/workers/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (res.ok) {
+        setWorkers(workers.filter(w => w.id !== id && w._id !== id));
+      } else {
+        alert(data.error);
+      }
+    } catch (err) {
+      console.error('Purge failure:', err);
+    }
+  };
+
+  const filteredWorkers = workers.filter(w => 
+    w.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    w.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    w.department.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const summary = {
     total: workers.length,
     inside: workers.filter(w => w.status === 'Inside').length,
@@ -39,9 +61,11 @@ const WorkerRecords = () => {
             Central database for workforce monitoring and compliance.
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => navigate('/worker-registration')}>
-          ➕ ADD PERSONNEL
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button className="btn btn-primary" onClick={() => navigate('/worker-registration')}>
+            ➕ ADD PERSONNEL
+          </button>
+        </div>
       </div>
       
       {/* Summary Section */}
@@ -58,7 +82,30 @@ const WorkerRecords = () => {
            <p style={{ color: 'var(--text-muted)', fontWeight: '600' }}>Decrypting records from secure vault...</p>
         </div>
       ) : (
-        <TableCard title="Registry Records">
+        <TableCard title={
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <span>Registry Records</span>
+            <div style={{ position: 'relative', width: '280px' }}>
+              <input 
+                type="text" 
+                placeholder="Search operative..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1.5px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '0.6rem 2.5rem 0.6rem 1rem',
+                  color: '#fff',
+                  width: '100%',
+                  fontSize: '0.8rem',
+                  outline: 'none'
+                }}
+              />
+              <span style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5, fontSize: '0.8rem' }}>🔍</span>
+            </div>
+          </div>
+        }>
           <table>
             <thead>
               <tr>
@@ -73,7 +120,7 @@ const WorkerRecords = () => {
               </tr>
             </thead>
             <tbody>
-              {workers.map(worker => (
+              {filteredWorkers.map(worker => (
                 <tr key={worker._id}>
                   <td style={{ fontWeight: '800', color: 'var(--text-primary)', fontSize: '1rem' }}>{worker.id}</td>
                   <td style={{ fontWeight: '500' }}>{worker.name}</td>
@@ -94,21 +141,30 @@ const WorkerRecords = () => {
                     </span>
                   </td>
                   <td>
-                    <button 
-                      className="btn btn-outline" 
-                      style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '800' }}
-                      onClick={() => navigate('/worker-attendance')}
-                    >
-                      ACTIONS
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        className="btn btn-outline" 
+                        style={{ padding: '0.4rem 0.8rem', fontSize: '0.75rem', fontWeight: '800' }}
+                        onClick={() => navigate('/worker-attendance')}
+                      >
+                        LOGS
+                      </button>
+                      <button 
+                        className="btn btn-outline" 
+                        style={{ padding: '0.4rem', borderColor: 'var(--danger)', color: 'var(--danger)', background: 'rgba(220,53,69,0.05)' }}
+                        onClick={() => handleDelete(worker.id)}
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
-              {workers.length === 0 && (
+              {filteredWorkers.length === 0 && (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    No workforce records available in current database range.
-                  </td>
+                   <td colSpan="8" style={{ textAlign: 'center', padding: '4rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                     No workforce records available in current search range.
+                   </td>
                 </tr>
               )}
             </tbody>

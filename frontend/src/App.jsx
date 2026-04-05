@@ -9,7 +9,6 @@ import WorkerAttendance from './pages/WorkerAttendance';
 import WorkerRecords from './pages/WorkerRecords';
 import HealthAlerts from './pages/HealthAlerts';
 import HealthAnalytics from './pages/HealthAnalytics';
-import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import './styles/global.css';
 
@@ -35,7 +34,6 @@ const AppContent = () => {
         <Route path="/worker-records" element={<WorkerRecords />} />
         <Route path="/health-alerts" element={<HealthAlerts />} />
         <Route path="/health-analytics" element={<HealthAnalytics />} />
-        <Route path="/reports" element={<Reports />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </MainLayout>

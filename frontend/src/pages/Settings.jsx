@@ -69,17 +69,13 @@ const Settings = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
            <div className="card glass">
               <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: '800' }}>
-                <span style={{ fontSize: '1.4rem' }}>🔔</span> SAFETY THRESHOLDS
+                SAFETY THRESHOLDS
               </h3>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '2rem' }}>
                  Adjust site-wide health parameters for automated biometric alert generation.
               </p>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '2rem' }}>
-                 <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Max Temp (°F)</label>
-                    <input type="number" defaultValue="101.5" />
-                 </div>
                  <div>
                     <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Max Heart Rate (BPM)</label>
                     <input type="number" defaultValue="120" />
@@ -88,39 +84,8 @@ const Settings = () => {
                     <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Min SpO2 (%)</label>
                     <input type="number" defaultValue="93" />
                  </div>
-                 <div>
-                    <label style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Gas Toxicity (PPM)</label>
-                    <input type="number" defaultValue="35" />
-                 </div>
               </div>
               <button className="btn btn-primary" style={{ marginTop: '2.5rem', width: 'fit-content', padding: '1rem 2rem' }}>SAVE SYSTEM PARAMETERS</button>
-           </div>
-
-           <div className="card glass">
-              <h3 style={{ marginBottom: '1.5rem', fontWeight: '800' }}>⚙️ OPERATIONAL PREFERENCES</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div>
-                       <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Real-time Biometric Sync</div>
-                       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Keep local database synced with cloud every 5 mins.</p>
-                    </div>
-                    <input type="checkbox" style={{ width: '22px', height: '22px', accentColor: 'var(--accent-primary)' }} defaultChecked />
-                 </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                    <div>
-                       <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Emergency Siren Integration</div>
-                       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Allow supervisor portal to trigger physical alarms.</p>
-                    </div>
-                    <input type="checkbox" style={{ width: '22px', height: '22px', accentColor: 'var(--accent-primary)' }} defaultChecked />
-                 </div>
-                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                       <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Auto-Report Generation</div>
-                       <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Automatically generate daily shift logs at 00:00 HRS.</p>
-                    </div>
-                    <input type="checkbox" style={{ width: '22px', height: '22px', accentColor: 'var(--accent-primary)' }} />
-                 </div>
-              </div>
            </div>
         </div>
       </div>

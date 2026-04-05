@@ -18,7 +18,6 @@ const Navbar = () => {
           <span className="current-date">{new Date().toDateString()}</span>
         </div>
         <div className="navbar-right">
-          <div className="notification-icon">🔔 <span className="count">3</span></div>
           <div 
             className="admin-profile" 
             onClick={() => navigate('/settings')} 
