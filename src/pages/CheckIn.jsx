@@ -42,7 +42,6 @@ const CheckIn = () => {
   };
 
   const vitals = [
-    { label: 'Temp (°F)', value: '98.5' },
     { label: 'HR (bpm)', value: '72' },
     { label: 'SpO2 (%)', value: '98' }
   ];

@@ -51,7 +51,7 @@ const HealthAnalytics = () => {
         <div className="card" style={{ textAlign: 'center', borderTop: '5px solid var(--accent-primary)' }}>
            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Weekly Safety Score</div>
            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent-primary)' }}>{safetyScore}%</div>
-           <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>Calculated from 21 sensor points</div>
+           <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: 'var(--text-muted)' }}>Calculated from HR & SpO2 vitals</div>
         </div>
         <div className="card" style={{ textAlign: 'center', borderTop: '5px solid var(--warning)' }}>
            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Abnormal Days (7d)</div>
@@ -102,7 +102,6 @@ const HealthAnalytics = () => {
           <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '2rem' }}>Simplified Health Trends (Last 7 Days)</h3>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
-            {renderSimplifiedChart(sevenDayHistory.map(d => d.temp), 'var(--danger)', 97, 102, 'Body Temperature (°F)')}
             {renderSimplifiedChart(sevenDayHistory.map(d => d.heartRate), 'var(--accent-primary)', 60, 110, 'Heart Rate (BPM)')}
             {renderSimplifiedChart(sevenDayHistory.map(d => d.spo2), 'var(--info)', 90, 100, 'Oxygen Level (SpO2 %)')}
           </div>

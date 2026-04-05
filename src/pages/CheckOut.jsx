@@ -35,7 +35,6 @@ const CheckOut = () => {
   };
 
   const vitals = [
-    { label: 'End Temp (°F)', value: '99.1' },
     { label: 'End HR (bpm)', value: '86' },
     { label: 'End SpO2 (%)', value: '97' }
   ];

@@ -153,10 +153,8 @@ const WorkerAttendance = () => {
                 <HealthDecisionCard 
                   decision={getGuidance(identifiedWorker)}
                   vitals={[
-                    { label: 'Body Temp', value: '98.6°F' },
                     { label: 'Heart Rate', value: '72 bpm' },
-                    { label: 'Oxygen Level', value: '99%' },
-                    ...(identifiedWorker.status === 'Outside' ? [{ label: 'Gas Methane', value: '0.001%' }] : [])
+                    { label: 'Oxygen Level', value: '99%' }
                   ]}
                 />
               </div>

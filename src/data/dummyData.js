@@ -52,7 +52,7 @@ export const workers = [
 ];
 
 export const healthAlerts = [
-  { id: 1, workerId: 'W101', name: 'John Doe', type: 'High Temp', value: '101°F', status: 'Critical', time: '10:30 AM' },
+  { id: 1, workerId: 'W101', name: 'John Doe', type: 'Low SpO2 Drop', value: '88%', status: 'Critical', time: '10:30 AM' },
   { id: 2, workerId: 'W112', name: 'Chris Evans', type: 'Low SpO2', value: '92%', status: 'Warning', time: '11:15 AM' },
   { id: 3, workerId: 'W105', name: 'James Taylor', type: 'High HR', value: '115 bpm', status: 'Critical', time: '12:00 PM' },
 ];
@@ -65,13 +65,13 @@ export const analyticsData = {
   safetyScore: 92,
   abnormalDays: 1,
   sevenDayHistory: [
-    { day: 'Mon', temp: 98.6, heartRate: 72, spo2: 99, status: 'Safe' },
-    { day: 'Tue', temp: 98.8, heartRate: 75, spo2: 98, status: 'Safe' },
-    { day: 'Wed', temp: 99.1, heartRate: 82, spo2: 97, status: 'Warning' },
-    { day: 'Thu', temp: 100.2, heartRate: 98, spo2: 95, status: 'Critical' },
-    { day: 'Fri', temp: 98.7, heartRate: 74, spo2: 99, status: 'Safe' },
-    { day: 'Sat', temp: 98.5, heartRate: 71, spo2: 99, status: 'Safe' },
-    { day: 'Sun', temp: 98.4, heartRate: 70, spo2: 99, status: 'Safe' },
+    { day: 'Mon', heartRate: 72, spo2: 99, status: 'Safe' },
+    { day: 'Tue', heartRate: 75, spo2: 98, status: 'Safe' },
+    { day: 'Wed', heartRate: 82, spo2: 97, status: 'Warning' },
+    { day: 'Thu', heartRate: 98, spo2: 95, status: 'Critical' },
+    { day: 'Fri', heartRate: 74, spo2: 99, status: 'Safe' },
+    { day: 'Sat', heartRate: 71, spo2: 99, status: 'Safe' },
+    { day: 'Sun', heartRate: 70, spo2: 99, status: 'Safe' },
   ]
 };
 

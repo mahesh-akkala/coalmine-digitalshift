@@ -66,11 +66,7 @@ const WorkerRegistration = () => {
           
           <div style={{ marginTop: '2rem', borderTop: '1px solid var(--border-color)', paddingTop: '1.5rem' }}>
             <h4 style={{ marginBottom: '1rem', color: 'var(--text-secondary)' }}>Health Baseline</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-              <div>
-                <label>Normal Temp (°F)</label>
-                <input type="text" defaultValue="98.6" />
-              </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
                 <label>Normal HR (bpm)</label>
                 <input type="text" defaultValue="72" />

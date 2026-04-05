@@ -87,7 +87,7 @@ export const HealthDecisionCard = ({ decision, vitals }) => {
           : 'Vitals need attention. Action is restricted.'}
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${vitals.length}, 1fr)`, gap: '1rem' }}>
         {vitals.map((v, i) => (
           <div key={i} style={{ background: 'rgba(0,0,0,0.1)', padding: '1rem', borderRadius: 'var(--radius-md)' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>{v.label}</div>

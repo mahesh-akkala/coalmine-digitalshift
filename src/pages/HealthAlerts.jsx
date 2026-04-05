@@ -51,7 +51,7 @@ const HealthAlerts = () => {
             <li>1. Alert nearest supervisor zone.</li>
             <li>2. Send secondary medical response team to Area Sector B.</li>
             <li>3. Trigger vibrating alert on worker's digital badge.</li>
-            <li>4. Initiate shaft ventilation boost if gas levels are rising.</li>
+            <li>4. Notify exit gates of potential health-related early check-out.</li>
           </ul>
           <button className="btn btn-danger" style={{ width: '100%', marginTop: '2rem' }}>SEND EMERGENCY BROADCAST</button>
         </div>
