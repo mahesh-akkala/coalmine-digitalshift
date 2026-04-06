@@ -1,0 +1,25 @@
+{
+  "name": "coalmine-frontend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mahesh-akkala/coalmine-frontend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/mahesh-akkala/coalmine-frontend/issues"
+  },
+  "homepage": "https://github.com/mahesh-akkala/coalmine-frontend#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
