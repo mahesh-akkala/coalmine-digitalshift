@@ -75,6 +75,18 @@ app.post('/api/sensor-data', async (req, res) => {
   }
 });
 
+// 1.5 ESP32: New Enrollment Signal
+app.post('/api/enroll', (req, res) => {
+  try {
+    const { fingerprintId } = req.body;
+    console.log(`📥 Hardware Enrollment: Fingerprint#${fingerprintId} Registered Successfully`);
+    io.emit('hardware_enrollment_success', { fingerprintId });
+    res.status(200).json({ message: 'Enrollment Acknowledged' });
+  } catch (err) {
+    res.status(500).json({ error: 'Enrollment Sync Failure' });
+  }
+});
+
 // 2. Supervisor: Registration
 app.post('/api/admins/register', async (req, res) => {
   try {
@@ -115,6 +127,14 @@ app.post('/api/workers', async (req, res) => {
     await worker.save();
     res.status(201).json(worker);
   } catch (err) {
+    if (err.code === 11000) {
+      if (err.keyPattern && err.keyPattern.id) {
+         return res.status(409).json({ error: 'Worker Code / ID already exists.' });
+      }
+      if (err.keyPattern && err.keyPattern.fingerprintId) {
+         return res.status(409).json({ error: 'This biometric slot is already physically tied to another operative.' });
+      }
+    }
     res.status(400).json({ error: err.message });
   }
 });

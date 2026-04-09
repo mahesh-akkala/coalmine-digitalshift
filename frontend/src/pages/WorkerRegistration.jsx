@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { TableCard, StatusBadge, InfoBanner } from '../components/ui/UIComponents';
 import { departments, zones } from '../data/dummyData';
+import io from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
 
 const WorkerRegistration = () => {
   const [enrollmentStatus, setEnrollmentStatus] = useState('Not Registered');
@@ -23,6 +26,15 @@ const WorkerRegistration = () => {
 
   useEffect(() => {
     fetchWorkers();
+
+    socket.on('hardware_enrollment_success', (data) => {
+      console.log('📡 Hardware Enrollment Event:', data);
+      setFormData(prev => ({ ...prev, fingerprintId: data.fingerprintId.toString() }));
+      setIsScanning(false);
+      setEnrollmentStatus('Ready to Register');
+    });
+
+    return () => socket.off('hardware_enrollment_success');
   }, []);
 
   const fetchWorkers = async () => {
@@ -74,18 +86,7 @@ const WorkerRegistration = () => {
 
   const startScanning = () => {
     setIsScanning(true);
-    setEnrollmentStatus('Waiting for Finger...');
-    
-    // Simulate finding the next available slot ID
-    const nextId = dbWorkers.length > 0 
-      ? Math.max(...dbWorkers.map(w => parseInt(w.fingerprintId) || 0)) + 1 
-      : 1;
-
-    setTimeout(() => {
-      setIsScanning(false);
-      setEnrollmentStatus('Ready to Register');
-      setFormData(prev => ({ ...prev, fingerprintId: nextId.toString() }));
-    }, 2500);
+    setEnrollmentStatus('Waiting for Physical Hardware Scan...');
   };
 
   return (

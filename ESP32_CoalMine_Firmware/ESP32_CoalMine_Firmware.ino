@@ -110,6 +110,22 @@ void sendDataToServer(int fingerId, float hr, int spo2) {
   }
 }
 
+void sendEnrollmentToServer(int fingerId) {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String enrollUrl = String(serverUrl);
+    enrollUrl.replace("/sensor-data", "/enroll");
+    http.begin(enrollUrl);
+    http.addHeader("Content-Type", "application/json");
+
+    String jsonPayload = "{\"fingerprintId\":" + String(fingerId) + "}";
+    int httpResponseCode = http.POST(jsonPayload);
+    Serial.print("Enrollment Linked to Server: HTTP ");
+    Serial.println(httpResponseCode);
+    http.end();
+  }
+}
+
 // --- ENROLLMENT LOGIC ---
 // Enrolls a new fingerprint to the sensor's flashes under the given ID
 uint8_t enrollFingerprint(uint8_t id) {
@@ -125,6 +141,13 @@ uint8_t enrollFingerprint(uint8_t id) {
   p = finger.image2Tz(1);
   if (p != FINGERPRINT_OK) { Serial.println("Conversion Error"); return p; }
   
+  // --- DUPLICATE CHECK ---
+  p = finger.fingerFastSearch();
+  if (p == FINGERPRINT_OK) {
+    Serial.printf("Error: Finger already enrolled as valid ID #%d!\n", finger.fingerID);
+    return FINGERPRINT_PACKETRECIEVEERR; // Abort enrollment
+  }
+
   Serial.println("Remove finger");
   delay(2000);
   p = 0;
@@ -154,6 +177,7 @@ uint8_t enrollFingerprint(uint8_t id) {
   p = finger.storeModel(id);
   if (p == FINGERPRINT_OK) {
     Serial.println("Stored! Registration Successful.");
+    sendEnrollmentToServer(id);
   } else {
     Serial.println("Error storing the fingerprint.");
     return p;
