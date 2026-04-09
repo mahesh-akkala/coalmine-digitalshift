@@ -40,6 +40,12 @@ void setup() {
     Serial.println("Did not find fingerprint sensor :(");
   }
 
+  // User Instructions
+  Serial.println("\n---------------------------------------------------");
+  Serial.println("SYSTEM IS ACTIVE AND READY!");
+  Serial.println(" -> To log Attendance / CHECK IN: Simply place your finger on the sensor.");
+  Serial.println(" -> To ENROLL a new worker: Type 'ENROLL <ID>' (e.g. ENROLL 2) in the box above and press Enter.");
+  Serial.println("---------------------------------------------------\n");
 }
 
 void loop() {
