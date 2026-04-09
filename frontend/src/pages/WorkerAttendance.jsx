@@ -21,6 +21,7 @@ const WorkerAttendance = () => {
 
     socket.on('new_scan', (data) => {
       console.log('📡 Attendance Scan:', data);
+      setStatusMessage(null);
       setIdentifiedWorker(data.worker);
       setVitals([
         { label: 'Heart Rate', value: data.vitals.heartRate.toFixed(0) + ' bpm' },
@@ -30,7 +31,17 @@ const WorkerAttendance = () => {
       setIsScanning(false);
     });
 
-    return () => socket.off('new_scan');
+    socket.on('scan_error', (data) => {
+      console.log('📡 Attendance Error:', data);
+      setStatusMessage({ type: 'error', text: data.error });
+      setIsScanning(false);
+      setViewState('SCAN');
+    });
+
+    return () => {
+      socket.off('new_scan');
+      socket.off('scan_error');
+    };
   }, []);
 
   const fetchWorkers = async () => {

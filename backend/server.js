@@ -38,6 +38,7 @@ app.post('/api/sensor-data', async (req, res) => {
     // Find worker linked to this fingerprint slot
     const worker = await Worker.findOne({ fingerprintId });
     if (!worker) {
+      io.emit('scan_error', { error: `Unrecognized Biometric Template: Hardware Slot #${fingerprintId} has no matched profile in the database.` });
       return res.status(404).json({ error: 'Unrecognized Biometric Template' });
     }
 
