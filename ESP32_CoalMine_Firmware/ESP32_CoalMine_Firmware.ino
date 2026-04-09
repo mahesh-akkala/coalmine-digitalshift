@@ -1,8 +1,6 @@
 #include <Adafruit_Fingerprint.h>
 #include <WiFi.h>
 #include <HTTPClient.h>
-#include <Wire.h>
-#include "MAX30100_PulseOximeter.h"
 
 // --- CONFIGURATION ---
 const char* ssid = "Dimpu";     // Change this
@@ -12,15 +10,11 @@ const char* serverUrl = "http://10.242.99.210:5000/api/sensor-data"; // Change t
 // Sensor Pins
 #define FINGERPRINT_RX 16
 #define FINGERPRINT_TX 17
-#define I2C_SDA 21
-#define I2C_SCL 22
 
 // Hardware Serial for Fingerprint
 HardwareSerial mySerial(2);
 Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 
-// PulseOximeter instance
-PulseOximeter pox;
 uint32_t tsLastReport = 0;
 #define REPORTING_PERIOD_MS 1000
 
@@ -46,13 +40,6 @@ void setup() {
     Serial.println("Did not find fingerprint sensor :(");
   }
 
-  // 3. MAX30100 Setup
-  Wire.begin(I2C_SDA, I2C_SCL);
-  if (!pox.begin()) {
-    Serial.println("FAILED to initialize MAX30100");
-  } else {
-    Serial.println("MAX30100 Initialized");
-  }
 }
 
 void loop() {
@@ -71,21 +58,18 @@ void loop() {
     }
   }
 
-  pox.update();
-
   // Every second, check if a finger is on the sensor
   if (millis() - tsLastReport > REPORTING_PERIOD_MS) {
     int fingerId = getFingerprintID();
     
     if (fingerId != -1) {
       // Finger detected and identified!
-      float heartRate = pox.getHeartRate();
-      float spo2 = pox.getSpO2();
+      // Using mock values for health since the MAX30100 was removed
+      float heartRate = 75.0;
+      float spo2 = 98.0;
 
-      if (heartRate > 0) {
-        Serial.printf("Worker ID: %d | HR: %.1f | SpO2: %.1f%%\n", fingerId, heartRate, spo2);
-        sendDataToServer(fingerId, heartRate, (int)spo2);
-      }
+      Serial.printf("Worker ID: %d | HR(Mock): %.1f | SpO2(Mock): %.1f%%\n", fingerId, heartRate, spo2);
+      sendDataToServer(fingerId, heartRate, (int)spo2);
     }
     tsLastReport = millis();
   }
@@ -126,7 +110,7 @@ uint8_t enrollFingerprint(uint8_t id) {
   Serial.print("Waiting for valid finger to enroll as #"); Serial.println(id);
   while (p != FINGERPRINT_OK) {
     p = finger.getImage();
-    if (p == FINGERPRINT_NOFINGER) { delay(50); pox.update(); }
+    if (p == FINGERPRINT_NOFINGER) { delay(50); }
     else if (p == FINGERPRINT_OK) { Serial.println("Image taken"); }
     else { Serial.println("Error imaging finger"); return p; }
   }
@@ -143,7 +127,7 @@ uint8_t enrollFingerprint(uint8_t id) {
   p = -1;
   while (p != FINGERPRINT_OK) {
     p = finger.getImage();
-    if (p == FINGERPRINT_NOFINGER) { delay(50); pox.update(); }
+    if (p == FINGERPRINT_NOFINGER) { delay(50); }
     else if (p == FINGERPRINT_OK) { Serial.println("Image taken"); }
     else { Serial.println("Error imaging finger"); return p; }
   }
