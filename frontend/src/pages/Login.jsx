@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import io from 'socket.io-client';
+
+const socket = io('http://localhost:5000');
 
 const Login = () => {
   const navigate = useNavigate();
@@ -10,6 +13,38 @@ const Login = () => {
   const [formData, setFormData] = useState({ username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [scanStatus, setScanStatus] = useState('Initiate Biometric');
+  const [showPopup, setShowPopup] = useState(false);
+
+  useEffect(() => {
+    socket.on('scan_status', (data) => {
+      console.log('📡 Scan Step:', data);
+      setScanStatus(data.message);
+    });
+
+    socket.on('login_success', (data) => {
+      console.log('✅ Biometric Login Succcess:', data);
+      setIsScanning(false);
+      setIsVerified(true);
+      setShowPopup(true);
+      setScanStatus('Scan completed successfully.');
+      localStorage.setItem('coalmine_admin', JSON.stringify(data.user));
+      setTimeout(() => navigate('/dashboard'), 2000);
+    });
+
+    socket.on('login_fail', (data) => {
+      console.log('❌ Biometric Login Failed:', data);
+      setIsScanning(false);
+      setErrorMsg('Fingerprint not recognized.');
+      setScanStatus('Scan failed. Please try again.');
+    });
+
+    return () => {
+      socket.off('scan_status');
+      socket.off('login_success');
+      socket.off('login_fail');
+    };
+  }, []);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -49,14 +84,17 @@ const Login = () => {
     }
   };
 
-  const handleFingerprintScan = () => {
+  const handleFingerprintScan = async () => {
     setIsScanning(true);
     setErrorMsg('');
-    setTimeout(() => {
+    setScanStatus('Establishing handshake...');
+    
+    try {
+      await fetch('http://localhost:5000/api/verifyFingerprint', { method: 'POST' });
+    } catch (err) {
+      setErrorMsg('Hardware Service Offline');
       setIsScanning(false);
-      setIsVerified(true);
-      setTimeout(() => navigate('/dashboard'), 1500);
-    }, 2500);
+    }
   };
 
   return (
@@ -246,8 +284,19 @@ const Login = () => {
               }}
               disabled={isScanning || isVerified}
             >
-              {isScanning ? 'SEQUENCING...' : (isVerified ? 'ACCESS GRANTED' : 'INITIATE BIOMETRIC')}
+              {isScanning ? scanStatus.toUpperCase() : (isVerified ? 'ACCESS GRANTED' : 'INITIATE BIOMETRIC')}
             </button>
+          </div>
+        )}
+        
+        {showPopup && (
+          <div style={{
+            position: 'fixed', top: '20px', right: '20px', zIndex: 2000,
+            background: 'rgba(46, 204, 113, 0.95)', color: '#000', padding: '1rem 2rem',
+            borderRadius: '12px', fontWeight: '800', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+            border: '1px solid #fff'
+          }}>
+            ✨ Scan completed successfully.
           </div>
         )}
         

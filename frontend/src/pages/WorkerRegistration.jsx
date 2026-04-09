@@ -10,6 +10,12 @@ const WorkerRegistration = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [dbWorkers, setDbWorkers] = useState([]);
   const [successMessage, setSuccessMessage] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showScanPopup, setShowScanPopup] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [scanInstruction, setScanInstruction] = useState('Initialize Enrollment');
+  const [assignedSlot, setAssignedSlot] = useState(null);
+  const [hasError, setHasError] = useState(false);
   
   const [formData, setFormData] = useState({
     id: '', 
@@ -32,9 +38,64 @@ const WorkerRegistration = () => {
       setFormData(prev => ({ ...prev, fingerprintId: data.fingerprintId.toString() }));
       setIsScanning(false);
       setEnrollmentStatus('Ready to Register');
+      setShowScanPopup(true);
+      setTimeout(() => setShowScanPopup(false), 3000);
     });
 
-    return () => socket.off('hardware_enrollment_success');
+    socket.on('scan_status', (data) => {
+      console.log('📡 Scan Step:', data);
+      
+      const statusMap = {
+        'WAITING': 'Waiting for finger...',
+        'DETECTED': 'Finger detected ✅',
+        'REMOVE': 'Remove finger',
+        'PLACE_AGAIN': 'Place same finger again',
+        'PROCESSING': 'Scanning...',
+        'SUCCESS': 'Completed',
+        'FAIL_MISMATCH': 'Finger mismatch ❌ Please try again',
+        'FAIL_SCAN': 'Scan failed. Try again'
+      };
+
+      const msg = statusMap[data.status] || data.message;
+      setEnrollmentStatus(msg);
+      setScanInstruction(msg);
+
+      if (data.status === 'SUCCESS') {
+        setShowScanPopup(true);
+        setTimeout(() => setShowScanPopup(false), 4000);
+      }
+
+      // AUTO-RETRY LOGIC: If scan fails, re-trigger command after 2 seconds
+      if (data.status && data.status.startsWith('FAIL_')) {
+        console.log('🔄 Failure detected. Auto-retrying enrollment...');
+        setHasError(true);
+        setIsScanning(false); // Stop the "scanning" state to enable the Try Again button
+        setTimeout(() => {
+          // Keep auto-retry if slot exists
+          // if (assignedSlot) triggerEnrollment(assignedSlot); 
+        }, 1500);
+      }
+    });
+
+    socket.on('hardware_enrollment_error', (data) => {
+      console.log('📡 Hardware Enrollment Error:', data);
+      setIsScanning(false);
+      setHasError(true);
+      if (data.message === 'DUPLICATE_FINGER') {
+        setErrorMessage('This finger is already registered to another worker!');
+        setEnrollmentStatus('Duplicate Detected');
+      } else if (data.message === 'MISMATCH') {
+        setErrorMessage('Fingerprints did not match. Please try again.');
+        setEnrollmentStatus('Scan Mismatch');
+      }
+      setTimeout(() => setErrorMessage(''), 5000);
+    });
+
+    return () => {
+      socket.off('hardware_enrollment_success');
+      socket.off('hardware_enrollment_error');
+      socket.off('scan_status');
+    };
   }, []);
 
   const fetchWorkers = async () => {
@@ -52,6 +113,14 @@ const WorkerRegistration = () => {
   };
 
   const registerWorker = async () => {
+    // 1. Uniqueness check for Enroll Number
+    const isDuplicate = dbWorkers.some(w => w.fingerprintId && w.fingerprintId.toString() === formData.fingerprintId.toString());
+    if (isDuplicate) {
+      setErrorMessage(`CRITICAL: Enroll Number #${formData.fingerprintId} is already assigned to another operative!`);
+      setTimeout(() => setErrorMessage(''), 6000);
+      return;
+    }
+
     if (!formData.id || !formData.name || !formData.fingerprintId) {
       return alert('Worker ID, Name, and Fingerprint ID are mandatory!');
     }
@@ -67,7 +136,7 @@ const WorkerRegistration = () => {
         setSuccessMessage(`Worker ${formData.name} registered successfully!`);
         fetchWorkers();
         setEnrollmentStatus('Enrolled Successfully');
-        setTimeout(() => setSuccessMessage(''), 5000);
+        setShowSuccessModal(true);
         // Reset form except defaults
         setFormData({
           id: '', name: '', age: '', phone: '', 
@@ -84,37 +153,31 @@ const WorkerRegistration = () => {
     }
   };
 
-  const startScanning = async () => {
-    setIsScanning(true);
-    setEnrollmentStatus('Waiting for Physical Hardware Scan...');
-
-    // Calculate next available BIO template ID
-    const nextId = dbWorkers.length > 0 
-      ? Math.max(...dbWorkers.map(w => parseInt(w.fingerprintId) || 0)) + 1 
-      : 1;
-
-    // Command the ESP32 remotely!
+  const triggerEnrollment = async (slotId) => {
     try {
       await fetch('http://localhost:5000/api/device/command', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ command: 'ENROLL', slot: nextId })
+        body: JSON.stringify({ command: 'ENROLL', slot: slotId })
       });
+      console.log('📡 ENROLL Command sent for slot:', slotId);
     } catch (err) {
       console.error('Failed to trigger remote hardware', err);
     }
   };
 
-  const simulateHardwareEnroll = () => {
-    if (!isScanning) return;
-    const nextId = dbWorkers.length > 0 
+  const startScanning = async () => {
+    setIsScanning(true);
+    setHasError(false);
+    setEnrollmentStatus('Waiting for Physical Hardware Scan...');
+
+    // Calculate next available BIO template ID
+    const nextId = assignedSlot || (dbWorkers.length > 0 
       ? Math.max(...dbWorkers.map(w => parseInt(w.fingerprintId) || 0)) + 1 
-      : 1;
-    
-    // Natively inject the ID simulating a websocket read
-    setFormData(prev => ({ ...prev, fingerprintId: nextId.toString() }));
-    setIsScanning(false);
-    setEnrollmentStatus('Biometric Signature Acquired');
+      : 1);
+
+    setAssignedSlot(nextId);
+    triggerEnrollment(nextId);
   };
 
   return (
@@ -127,7 +190,37 @@ const WorkerRegistration = () => {
       </div>
 
       {successMessage && <InfoBanner message={successMessage} type="info" />}
-      
+      {errorMessage && <InfoBanner message={errorMessage} type="danger" />}
+
+      {showSuccessModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="card glass animate-scale-in" style={{
+            maxWidth: '400px', textAlign: 'center', padding: '3rem',
+            border: '2px solid var(--success)', boxShadow: '0 0 50px rgba(16, 185, 129, 0.2)'
+          }}>
+            <div style={{ fontSize: '5rem', marginBottom: '1.5rem' }}>✅</div>
+            <h2 style={{ color: 'var(--success)', fontSize: '2rem', fontWeight: '900' }}>REGISTRATION SUCCESSFUL</h2>
+            <p style={{ color: 'var(--text-secondary)', margin: '1.5rem 0' }}>The worker has been authorized and added to the official coal mine registry.</p>
+            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setShowSuccessModal(false)}>CONTINUE</button>
+          </div>
+        </div>
+      )}
+
+      {showScanPopup && (
+        <div style={{
+          position: 'fixed', top: '20px', right: '20px', zIndex: 2000,
+          background: 'rgba(16, 185, 129, 0.95)', color: '#000', padding: '1rem 2rem',
+          borderRadius: '12px', fontWeight: '800', boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
+          animation: 'slide-in 0.5s ease-out', border: '1px solid #fff'
+        }}>
+           ✨ Fingerprint registered successfully ✅
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '2.5rem' }}>
         {/* Registration Form */}
         <div className="card glass">
@@ -227,43 +320,34 @@ const WorkerRegistration = () => {
             <div style={{ marginBottom: '2rem' }}>
               <div style={{ 
                   padding: '1.5rem', 
-                  background: 'rgba(255,255,255,0.02)', 
-                  border: '1px solid rgba(255,255,255,0.05)', 
+                  background: 'rgba(255,165,0,0.05)', 
+                  border: '2px solid rgba(255,165,0,0.2)', 
                   borderRadius: '16px',
                   display: 'inline-block',
-                  minWidth: '200px'
+                  minWidth: '220px',
+                  boxShadow: formData.fingerprintId ? '0 0 20px rgba(255,165,0,0.1)' : 'none'
               }}>
-                <label style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem', display: 'block' }}>
-                  Auto-Assigned Bio Slot
+                <label style={{ fontSize: '0.8rem', color: 'var(--accent-primary)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem', display: 'block' }}>
+                  🆔 ENROLL NUMBER
                 </label>
-                <div style={{ fontSize: '1.8rem', fontWeight: '900', color: 'var(--accent-primary)', letterSpacing: '-0.02em' }}>
+                <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#fff', letterSpacing: '-0.02em', textShadow: '0 0 10px rgba(255,255,255,0.3)' }}>
                   {formData.fingerprintId ? `#${formData.fingerprintId}` : '--'}
                 </div>
               </div>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '1rem' }}>
-                Securely synchronized with local device storage.
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '1.25rem', fontWeight: '600' }}>
+                Hardware Slot Registry
               </p>
             </div>
 
             <StatusBadge status={enrollmentStatus} />
             
-            {isScanning && (
-              <button 
-                type="button"
-                onClick={simulateHardwareEnroll}
-                style={{ width: '100%', marginTop: '1rem', padding: '0.8rem', background: 'rgba(0,0,0,0.4)', color: '#10b981', border: '1px dashed #10b981', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
-              >
-                ⚙️ [DEV] SIMULATE FINGERPRINT SCAN
-              </button>
-            )}
-
             <button 
               className="btn btn-primary" 
-              style={{ width: '100%', marginTop: '2.5rem', padding: '1.2rem' }} 
+              style={{ width: '100%', marginTop: '2.5rem', padding: '1.2rem', background: isScanning ? 'var(--accent-primary)' : (hasError ? 'var(--danger)' : '') }} 
               onClick={startScanning} 
-              disabled={isScanning || !!formData.fingerprintId}
+              disabled={isScanning || (!!formData.fingerprintId && !hasError)}
             >
-              {isScanning ? 'ESTABLISHING HANDSHAKE...' : (formData.fingerprintId ? 'SLOT RESERVED ✓' : 'INITIALIZE ENROLLMENT')}
+              {isScanning ? scanInstruction.toUpperCase() : (hasError ? 'TRY AGAIN 🔄' : (formData.fingerprintId ? 'SLOT RESERVED ✓' : 'INITIALIZE ENROLLMENT'))}
             </button>
           </div>
 

@@ -28,6 +28,7 @@ app.use(express.json());
 connectDB();
 
 let activeDeviceCommand = { command: 'NONE', slot: null };
+let pendingConsoleCmd = null; // New queue for raw terminal commands
 
 // --- API ROUTES ---
 
@@ -37,7 +38,27 @@ app.post('/api/sensor-data', async (req, res) => {
     const { fingerprintId, heartRate, spo2 } = req.body;
     console.log(`📥 Hardware Pulse: Fingerprint#${fingerprintId} | HR:${heartRate} | SpO2:${spo2}`);
 
-    // Find worker linked to this fingerprint slot
+    // Check if this is a login verification scan (no vitals)
+    if (!heartRate && !spo2) {
+      // Find Admin first
+      let admin = await Admin.findOne({ fingerprintId });
+      if (admin) {
+        io.emit('login_success', { user: admin, type: 'Admin' });
+        return res.status(200).json({ message: 'Admin Verified' });
+      }
+
+      // Then check Workers
+      let worker = await Worker.findOne({ fingerprintId });
+      if (worker) {
+        io.emit('login_success', { user: worker, type: 'Worker' });
+        return res.status(200).json({ message: 'Worker Verified' });
+      }
+
+      io.emit('login_fail', { error: 'Fingerprint not recognized.' });
+      return res.status(404).json({ error: 'Identity Unknown' });
+    }
+
+    // Standard Attendance Scan with Vitals
     const worker = await Worker.findOne({ fingerprintId });
     if (!worker) {
       io.emit('scan_error', { error: `Unrecognized Biometric Template: Hardware Slot #${fingerprintId} has no matched profile in the database.` });
@@ -90,7 +111,59 @@ app.post('/api/enroll', (req, res) => {
   }
 });
 
+// 1.5.1 ESP32: Enrollment Failure
+app.post('/api/enroll/fail', (req, res) => {
+  try {
+    const { message } = req.body;
+    console.log(`❌ Hardware Enrollment Failed: ${message}`);
+    io.emit('hardware_enrollment_error', { message });
+    res.status(200).json({ message: 'Error Logged' });
+  } catch (err) {
+    res.status(500).json({ error: 'Error Sync Failure' });
+  }
+});
+
+// 1.5.2 ESP32: Real-time Scanning Progress
+app.post('/api/scan-status', (req, res) => {
+  const { status, message } = req.body;
+  console.log(`📡 Scan Status: [${status}] ${message || ''}`);
+  io.emit('scan_status', { status, message });
+  res.status(200).send('OK');
+});
+
+// 1.5.3 ESP32: Raw Hardware Logs (Serial Mirror)
+app.post('/api/hardware-log', (req, res) => {
+  const { log } = req.body;
+  const timestamp = new Date().toLocaleTimeString();
+  console.log(`📠 [HW LOG] ${log}`);
+  io.emit('hardware_log', { log, timestamp });
+  res.status(200).send('OK');
+});
+
 // 1.6 Remote Control: React -> Backend
+// Alias for Registration Initialization
+app.post('/api/enrollFingerprint', (req, res) => {
+  const { slot } = req.body;
+  activeDeviceCommand = { command: 'ENROLL', slot };
+  console.log(`🕹️ Remote Enroll: Slot #${slot}`);
+  res.status(200).json({ message: 'Enrollment Initialized' });
+});
+
+// Alias for Login Initialization
+app.post('/api/verifyFingerprint', (req, res) => {
+  activeDeviceCommand = { command: 'VERIFY', slot: null };
+  console.log(`🕹️ Remote Verify: Login Triggered`);
+  res.status(200).json({ message: 'Verification Initialized' });
+});
+
+// 1.6.3 Generic Console Command (Two-way Terminal)
+app.post('/api/hardware-command', (req, res) => {
+  const { command } = req.body;
+  pendingConsoleCmd = command;
+  console.log(`📡 WEB TERMINAL -> HW: ${command}`);
+  res.status(200).json({ message: 'Command Queued' });
+});
+
 app.post('/api/device/command', (req, res) => {
   const { command, slot } = req.body;
   activeDeviceCommand = { command, slot };
@@ -100,10 +173,13 @@ app.post('/api/device/command', (req, res) => {
 
 // 1.7 Remote Control: ESP32 Polling
 app.get('/api/device/command', (req, res) => {
-  res.json(activeDeviceCommand);
-  if (activeDeviceCommand.command !== 'NONE') {
-    activeDeviceCommand = { command: 'NONE', slot: null }; // Clear after dispatch
-  }
+  const currentCommand = { ...activeDeviceCommand, consoleMsg: pendingConsoleCmd };
+  
+  // Clear after dispatch
+  activeDeviceCommand = { command: 'NONE', slot: null };
+  pendingConsoleCmd = null;
+  
+  res.json(currentCommand);
 });
 
 // 2. Supervisor: Registration
