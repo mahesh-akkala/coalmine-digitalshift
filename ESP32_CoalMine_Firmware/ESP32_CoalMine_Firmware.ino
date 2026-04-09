@@ -56,6 +56,21 @@ void setup() {
 }
 
 void loop() {
+  // Listen for console commands to register a new finger
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    if (cmd.startsWith("ENROLL ")) {
+      int id = cmd.substring(7).toInt();
+      if (id > 0 && id <= 127) {
+        Serial.printf("Starting enrollment for ID #%d...\n", id);
+        enrollFingerprint(id);
+      } else {
+        Serial.println("Invalid ID. Range is 1-127.");
+      }
+    }
+  }
+
   pox.update();
 
   // Every second, check if a finger is on the sensor
@@ -102,4 +117,55 @@ void sendDataToServer(int fingerId, float hr, int spo2) {
     Serial.println(httpResponseCode);
     http.end();
   }
+}
+
+// --- ENROLLMENT LOGIC ---
+// Enrolls a new fingerprint to the sensor's flashes under the given ID
+uint8_t enrollFingerprint(uint8_t id) {
+  int p = -1;
+  Serial.print("Waiting for valid finger to enroll as #"); Serial.println(id);
+  while (p != FINGERPRINT_OK) {
+    p = finger.getImage();
+    if (p == FINGERPRINT_NOFINGER) { delay(50); pox.update(); }
+    else if (p == FINGERPRINT_OK) { Serial.println("Image taken"); }
+    else { Serial.println("Error imaging finger"); return p; }
+  }
+
+  p = finger.image2Tz(1);
+  if (p != FINGERPRINT_OK) { Serial.println("Conversion Error"); return p; }
+  
+  Serial.println("Remove finger");
+  delay(2000);
+  p = 0;
+  while (p != FINGERPRINT_NOFINGER) { p = finger.getImage(); delay(10); }
+  
+  Serial.println("Place same finger again");
+  p = -1;
+  while (p != FINGERPRINT_OK) {
+    p = finger.getImage();
+    if (p == FINGERPRINT_NOFINGER) { delay(50); pox.update(); }
+    else if (p == FINGERPRINT_OK) { Serial.println("Image taken"); }
+    else { Serial.println("Error imaging finger"); return p; }
+  }
+
+  p = finger.image2Tz(2);
+  if (p != FINGERPRINT_OK) { Serial.println("Conversion Error"); return p; }
+  
+  Serial.println("Creating model...");
+  p = finger.createModel();
+  if (p == FINGERPRINT_OK) {
+    Serial.println("Prints matched!");
+  } else {
+    Serial.println("Prints did not match!");
+    return p;
+  }
+  
+  p = finger.storeModel(id);
+  if (p == FINGERPRINT_OK) {
+    Serial.println("Stored! Registration Successful.");
+  } else {
+    Serial.println("Error storing the fingerprint.");
+    return p;
+  }
+  return p;
 }
