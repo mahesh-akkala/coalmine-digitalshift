@@ -18,6 +18,9 @@ Adafruit_Fingerprint finger = Adafruit_Fingerprint(&mySerial);
 uint32_t tsLastReport = 0;
 #define REPORTING_PERIOD_MS 1000
 
+uint32_t tsLastPoll = 0;
+#define POLLING_PERIOD_MS 2000
+
 bool isFingerDetected = false;
 
 void setup() {
@@ -62,6 +65,12 @@ void loop() {
         Serial.println("Invalid ID. Range is 1-127.");
       }
     }
+  }
+
+  // --- Remote Control Polling --- 
+  if (millis() - tsLastPoll > POLLING_PERIOD_MS) {
+    pollBackend();
+    tsLastPoll = millis();
   }
 
   // Every second, check if a finger is on the sensor
@@ -128,6 +137,37 @@ void sendEnrollmentToServer(int fingerId) {
     int httpResponseCode = http.POST(jsonPayload);
     Serial.print("Enrollment Linked to Server: HTTP ");
     Serial.println(httpResponseCode);
+    http.end();
+  }
+}
+
+// --- REMOTE POLLING ---
+void pollBackend() {
+  if (WiFi.status() == WL_CONNECTED) {
+    HTTPClient http;
+    String cmdUrl = String(serverUrl);
+    cmdUrl.replace("/sensor-data", "/device/command");
+    http.begin(cmdUrl);
+    int httpResponseCode = http.GET();
+    
+    if (httpResponseCode > 0) {
+      String payload = http.getString();
+      if (payload.indexOf("\"command\":\"ENROLL\"") > 0) {
+        int slotKeyIndex = payload.indexOf("\"slot\":");
+        if (slotKeyIndex > 0) {
+           int valStart = slotKeyIndex + 7;
+           int valEnd = payload.indexOf("}", valStart);
+           if (valEnd > valStart) {
+             String slotStr = payload.substring(valStart, valEnd);
+             int slotId = slotStr.toInt();
+             if (slotId > 0 && slotId <= 127) {
+               Serial.printf("\n>>> REMOTE COMMAND RECEIVED: ENROLL SLOT #%d <<<\n", slotId);
+               enrollFingerprint(slotId);
+             }
+           }
+        }
+      }
+    }
     http.end();
   }
 }

@@ -84,9 +84,25 @@ const WorkerRegistration = () => {
     }
   };
 
-  const startScanning = () => {
+  const startScanning = async () => {
     setIsScanning(true);
     setEnrollmentStatus('Waiting for Physical Hardware Scan...');
+
+    // Calculate next available BIO template ID
+    const nextId = dbWorkers.length > 0 
+      ? Math.max(...dbWorkers.map(w => parseInt(w.fingerprintId) || 0)) + 1 
+      : 1;
+
+    // Command the ESP32 remotely!
+    try {
+      await fetch('http://localhost:5000/api/device/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: 'ENROLL', slot: nextId })
+      });
+    } catch (err) {
+      console.error('Failed to trigger remote hardware', err);
+    }
   };
 
   return (

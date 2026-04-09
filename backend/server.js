@@ -27,6 +27,8 @@ app.use(express.json());
 // Connect Database
 connectDB();
 
+let activeDeviceCommand = { command: 'NONE', slot: null };
+
 // --- API ROUTES ---
 
 // 1. ESP32: Sensor Data Ingestion
@@ -85,6 +87,22 @@ app.post('/api/enroll', (req, res) => {
     res.status(200).json({ message: 'Enrollment Acknowledged' });
   } catch (err) {
     res.status(500).json({ error: 'Enrollment Sync Failure' });
+  }
+});
+
+// 1.6 Remote Control: React -> Backend
+app.post('/api/device/command', (req, res) => {
+  const { command, slot } = req.body;
+  activeDeviceCommand = { command, slot };
+  console.log(`🕹️ Remote Control: Queued hardware command [${command}] for Slot #${slot}`);
+  res.status(200).json({ message: 'Command Queued' });
+});
+
+// 1.7 Remote Control: ESP32 Polling
+app.get('/api/device/command', (req, res) => {
+  res.json(activeDeviceCommand);
+  if (activeDeviceCommand.command !== 'NONE') {
+    activeDeviceCommand = { command: 'NONE', slot: null }; // Clear after dispatch
   }
 });
 
