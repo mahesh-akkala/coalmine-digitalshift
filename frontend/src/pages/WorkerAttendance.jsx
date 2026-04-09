@@ -60,6 +60,19 @@ const WorkerAttendance = () => {
     setStatusMessage({ type: 'info', text: 'Terminal active. Waiting for biometric handshake...' });
   };
 
+  const simulateAttendanceScan = async (rawFingerprintId) => {
+    if (!rawFingerprintId) return;
+    try {
+      await fetch('http://localhost:5000/api/sensor-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fingerprintId: parseInt(rawFingerprintId), heartRate: 75, spo2: 98 })
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const getGuidance = (worker) => {
     const s = worker.healthEligibility.toLowerCase();
     if (s === 'safe') return 'SAFE';
@@ -153,6 +166,22 @@ const WorkerAttendance = () => {
           >
             {isScanning ? 'ESTABLISHING LINK...' : 'ENGAGE SCANNER'}
           </button>
+
+          {isScanning && workers.length > 0 && (
+            <div style={{ marginTop: '1.5rem', background: 'rgba(0,0,0,0.4)', padding: '1rem', borderRadius: '8px', border: '1px dashed #10b981', textAlign: 'left' }}>
+              <label style={{ fontSize: '0.7rem', color: '#10b981', display: 'block', marginBottom: '0.5rem', letterSpacing: '1px', fontWeight: 'bold' }}>⚙️ [DEV] SIMULATE HARDWARE</label>
+              <select 
+                style={{ width: '100%', background: '#111', color: '#10b981', border: '1px solid #10b981', padding: '0.5rem', borderRadius: '4px', cursor: 'pointer' }}
+                onChange={(e) => simulateAttendanceScan(e.target.value)}
+                defaultValue=""
+              >
+                <option value="" disabled>Select User to Scan...</option>
+                {workers.filter(w => w.fingerprintId).map(w => (
+                  <option key={w.id} value={w.fingerprintId}>{w.name} (Slot #{w.fingerprintId})</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Dynamic Workflow Column */}

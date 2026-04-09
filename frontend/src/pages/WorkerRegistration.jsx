@@ -105,6 +105,18 @@ const WorkerRegistration = () => {
     }
   };
 
+  const simulateHardwareEnroll = () => {
+    if (!isScanning) return;
+    const nextId = dbWorkers.length > 0 
+      ? Math.max(...dbWorkers.map(w => parseInt(w.fingerprintId) || 0)) + 1 
+      : 1;
+    
+    // Natively inject the ID simulating a websocket read
+    setFormData(prev => ({ ...prev, fingerprintId: nextId.toString() }));
+    setIsScanning(false);
+    setEnrollmentStatus('Biometric Signature Acquired');
+  };
+
   return (
     <div className="animate-fade-in">
       <div className="page-header">
@@ -235,6 +247,16 @@ const WorkerRegistration = () => {
 
             <StatusBadge status={enrollmentStatus} />
             
+            {isScanning && (
+              <button 
+                type="button"
+                onClick={simulateHardwareEnroll}
+                style={{ width: '100%', marginTop: '1rem', padding: '0.8rem', background: 'rgba(0,0,0,0.4)', color: '#10b981', border: '1px dashed #10b981', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+              >
+                ⚙️ [DEV] SIMULATE FINGERPRINT SCAN
+              </button>
+            )}
+
             <button 
               className="btn btn-primary" 
               style={{ width: '100%', marginTop: '2.5rem', padding: '1.2rem' }} 
