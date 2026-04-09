@@ -5,7 +5,7 @@
 // --- CONFIGURATION ---
 const char* ssid = "Dimpu";     // Change this
 const char* password = "12345678"; // Change this
-const char* serverUrl = "http://10.242.99.210:5000/api/sensor-data"; // Change to your local IP
+const char* serverUrl = "http://10.242.99.53:5000/api/sensor-data"; // Local IPv4 Configured
 
 // Sensor Pins
 #define FINGERPRINT_RX 16
@@ -70,6 +70,13 @@ void loop() {
 
       Serial.printf("Worker ID: %d | HR(Mock): %.1f | SpO2(Mock): %.1f%%\n", fingerId, heartRate, spo2);
       sendDataToServer(fingerId, heartRate, (int)spo2);
+
+      // Prevent continuous spam reading! Wait until finger is fully removed.
+      Serial.println("Please remove finger to allow next scan...");
+      while (finger.getImage() != FINGERPRINT_NOFINGER) {
+        delay(100);
+      }
+      Serial.println("Finger removed. Sensor is ready.");
     }
     tsLastReport = millis();
   }
